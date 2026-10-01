@@ -3,9 +3,10 @@
 A portfolio proof of concept for reconciling commercial-property ownership
 evidence before human review and a guarded Salesforce payload export.
 
-**Current milestone: 3 — SQLite persistence and human review.** Source models,
-fictional data, normalization, reconciliation, and a command-line review workflow
-are implemented. Streamlit and Salesforce export remain future milestones.
+**Current milestone: 4 — Streamlit dashboard and human review interface.** Source
+models, fictional data, normalization, reconciliation, SQLite audit history, and
+both browser and command-line review workflows are implemented. Salesforce
+payload generation remains a future milestone.
 Matching never approves a record; human decisions are stored separately.
 
 ## Problem
@@ -30,7 +31,20 @@ python -m pytest
 In this workspace, a working `.venv` has already been created with the bundled
 Python runtime. To rerun tests without using macOS's developer-tools-dependent
 system Python, run `.venv/bin/python -m pytest` from this directory. Verification
-uses Python 3.12.14 and pytest 8.4.2; the current full suite has 328 passing tests.
+uses Python 3.12.14 and pytest 8.4.2; the current full suite has 348 passing tests.
+
+Start the local Streamlit app from this project directory:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m streamlit run src/net_lease_ownership/app.py
+```
+
+Open `http://127.0.0.1:8501`. The app has a dashboard, a filterable review queue,
+source and candidate details, human decision forms, audit history, and an
+approved-record view. It uses `ownership.sqlite3` by default. If no database
+exists, click **Load sample property records**; initial loading never approves
+records. Approval requires an explicit candidate, decision, and reviewer name.
+Overrides also require a rationale. See [UI instructions](docs/UI.md).
 
 Generate an inspectable matching analysis report from the project directory:
 
@@ -99,9 +113,11 @@ validate database identity and the full schema on opening, and block replacement
 SQL on repository connections. Approval overriding property or selected-candidate
 warnings requires a nonblank reviewer rationale saved in audit history.
 
-The application uses the Python standard library at this stage. `pytest` is a
-development dependency. Streamlit will be added in Milestone 4. No credentials,
-AI API, environment variables, live feeds, or Salesforce org are needed.
+The business logic uses the Python standard library. Streamlit is the UI runtime
+dependency (tested with 1.64.0); `pytest` is a development dependency. No credentials,
+AI API, live feeds, or Salesforce org are needed. `.streamlit/config.toml` binds
+the server to localhost and disables usage statistics. `NLOI_DATABASE` optionally
+selects a separate local database; it is not required.
 
 ## Project layout
 
@@ -112,11 +128,14 @@ net-lease-ownership-intelligence/
     pyproject.toml
     .gitignore
     .env.example
+    .streamlit/
+        config.toml
     config/
         matching.toml
     docs/
         MATCHING.md
         REVIEW.md
+        UI.md
     data/
         properties.csv
         county_records.csv
@@ -133,6 +152,7 @@ net-lease-ownership-intelligence/
         repository.py
         review.py
         review_cli.py
+        app.py
     tests/
         test_models.py
         test_normalization.py
@@ -143,6 +163,7 @@ net-lease-ownership-intelligence/
         test_repository.py
         test_review.py
         test_review_cli.py
+        test_app.py
 ```
 
 The named package under `src/` supports predictable imports and keeps business
@@ -159,7 +180,7 @@ flowchart TD
     I --> N[Preserve originals and normalize]
     N --> M[Explainable matching and configurable rules]
     M --> DB[(SQLite evidence snapshots)]
-    DB --> R[Explicit human review and audit history]
+    DB --> R[Streamlit human review and audit history]
     R --> A[Explicit approval of reviewed evidence]
     A --> X[Milestone 5: guarded Salesforce JSON dry run]
 ```
@@ -173,15 +194,15 @@ flowchart TD
 
 Each milestone ends with tests and product-owner review before the next begins.
 
-For Milestone 3 review, inspect [review commands and schema](docs/REVIEW.md),
-the original evidence returned by `show`, and the history returned by `history`.
-Confirm that approval names a specific candidate and changed evidence requires
-another decision.
+For Milestone 4 review, inspect [UI instructions](docs/UI.md). Open P001 for a
+straightforward comparison, P003 for a conflict, and P013 for multiple candidates.
+Confirm that empty form defaults prevent accidental approval and that the
+approved view shows the explicitly selected entity.
 
 Milestone 1 was committed and pushed to
 [ownership-intelligence](https://github.com/templeanderson/ownership-intelligence).
-Milestone 2 is committed locally. Milestone 3 changes are local and uncommitted;
-neither milestone has been pushed. Development stops before Milestone 4.
+Milestones 2 and 3 are committed locally and have not been pushed. Milestone 4
+changes are local and uncommitted. Development stops before Milestone 5.
 
 ## Models and source provenance
 
@@ -272,11 +293,12 @@ only in V1.
 
 The product owner supplied the business problem, specification, milestone
 boundaries, and approved design. Codex served as the primary coding agent for
-Milestones 1 through 3: scaffolding the project, implementing source models and
+Milestones 1 through 4: scaffolding the project, implementing source models and
 loaders, creating fictional fixtures, writing normalization and matching,
 adding tests, diagnosing a local package-import issue, refining candidate
-ranking, implementing SQLite review and audit controls, and reviewing
-implementation decisions. Codex does not independently own the project.
+ranking, implementing SQLite review and audit controls, building the Streamlit
+interface, and testing UI interactions and implementation decisions. Codex does
+not independently own the project.
 
 ## Future work
 

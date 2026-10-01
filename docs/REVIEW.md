@@ -1,9 +1,9 @@
 # SQLite persistence and human review — Milestone 3
 
 Matching recommends a disposition. A human makes a separate review decision.
-Loading evidence never creates an approval. Streamlit is Milestone 4; Salesforce
-payload generation and validation are Milestone 5. This milestone uses only
-Python's standard library and SQLite, with no new dependencies.
+Loading evidence never creates an approval. [Milestone 4's Streamlit interface](UI.md)
+uses the same decision rules. Salesforce payload generation and validation are
+Milestone 5. Persistence/review use Python's standard library and SQLite.
 
 ## Run and inspect
 
@@ -181,7 +181,8 @@ Imports update included properties; omitted properties remain in the database.
 There is no deletion, retirement, or authoritative full-feed replacement policy
 yet. To start an independent experiment, choose a new database path. The
 application does not infer parent/child accounts or change preserved evidence
-during review. No Streamlit screen or Salesforce module is implemented here.
+during review. Streamlit screens are implemented separately in Milestone 4.
+No Salesforce module is implemented yet.
 
 Manually inspect P001 for a straightforward match, P003 for conflicting names,
 and P013 for multiple candidates. Verify the candidate index before approving;
