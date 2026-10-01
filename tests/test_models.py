@@ -19,7 +19,7 @@ def test_county_preserves_originals_and_derives_comparisons():
     assert record.owner_normalized == "abc medical llc"
     assert record.owner_comparison == "abc medical"
     assert record.mailing_address == "100 Main Street, Dallas, TX 75001"
-    assert record.mailing_address_normalized == "100 main st dallas tx 75001"
+    assert record.mailing_address_normalized == "100 main st, dallas tx 75001"
     assert record.source_as_of == date(2026, 9, 15)
 
 

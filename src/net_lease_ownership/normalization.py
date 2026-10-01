@@ -8,7 +8,16 @@ import re
 import unicodedata
 
 
-NORMALIZATION_VERSION = "1"
+NORMALIZATION_VERSION = "2"
+
+# Missing-value markers remain visible in source/normalized fields but must not
+# become useful matching evidence. These are fixed safeguards, not score policy.
+_MISSING_MARKERS = {
+    "n a", "na", "unknown", "unknown owner", "unknown entity", "tbd",
+    "to be determined", "none", "null", "not applicable", "not available",
+    "not known", "not provided", "unavailable", "missing", "pending",
+    "undisclosed", "0",
+}
 
 # Normalize dotted abbreviations before punctuation can split their letters.
 _DOTTED_SUFFIXES = {
@@ -64,11 +73,31 @@ def normalize_company_name(value: str, *, remove_legal_suffix: bool = False) -> 
     return " ".join(words)
 
 
+def is_useful_name(comparison: str) -> bool:
+    """Reject missing markers and names without any letters, without erasing them."""
+    return comparison not in _MISSING_MARKERS and any(character.isalpha() for character in comparison)
+
+
+def is_useful_address(normalized: str) -> bool:
+    """Require a basic numbered street or PO box, not postal validation.
+
+    This conservative US-fixture check treats unsupported formats as research
+    evidence. City or ZIP digits cannot stand in for a missing street address.
+    """
+    street = normalized.partition(",")[0].strip()
+    if street in _MISSING_MARKERS or not street:
+        return False
+    if re.match(r"^po box [1-9]\d*\b", street):
+        return True
+    return bool(re.match(r"^[1-9]\d*[a-z]?\s+", street)
+                and any(character.isalpha() for character in street))
+
+
 def normalize_address(value: str) -> str:
     """Normalize US-style sample addresses without dropping numbers or units.
 
-    Street abbreviations apply only before the first comma, preserving city
-    names such as 'West Lake'. No geocoding or postal validation is performed.
+    The street/city comma is retained so normalization remains idempotent and
+    city names such as 'West Lake' stay outside street abbreviation rules.
     """
     value = _text(value)
     street, separator, remainder = value.partition(",")
@@ -77,4 +106,6 @@ def normalize_address(value: str) -> str:
     words = _clean_punctuation(street).split()
     normalized_street = " ".join(_STREET_ABBREVIATIONS.get(word, word) for word in words)
     normalized_remainder = _clean_punctuation(remainder) if separator else ""
-    return " ".join(part for part in (normalized_street, normalized_remainder) if part)
+    if separator and normalized_remainder:
+        return f"{normalized_street}, {normalized_remainder}"
+    return normalized_street

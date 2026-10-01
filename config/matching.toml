@@ -1,0 +1,19 @@
+# Illustrative workflow policy, not calibrated probabilities.
+version = "2"
+name_match_threshold = 0.90
+name_conflict_threshold = 0.65
+ambiguity_name_threshold = 0.75
+name_weight = 70.0
+address_weight = 30.0
+accepted_entity_statuses = ["active"]
+
+# Only these word substitutions may support fuzzy readiness. Other edits
+# require research even when overall character similarity is very high.
+allowed_name_variations = [["property", "properties"], ["holding", "holdings"]]
+
+# These words alone do not support a possible related-entity interpretation.
+# They are excluded only from distinctive-token evidence, not from similarity.
+generic_name_tokens = [
+    "medical", "healthcare", "health", "holdings", "holding", "properties",
+    "property", "group", "investment", "investments", "commercial", "assets", "retail",
+]

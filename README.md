@@ -3,9 +3,10 @@
 A portfolio proof of concept for reconciling commercial-property ownership
 evidence before human review and a guarded Salesforce payload export.
 
-**Current milestone: 1 — scaffolding, source models, fictional data, ingestion,
-normalization, and tests.** Matching, persistence, review, Streamlit, and export
-are not implemented yet. No approval state or Salesforce payload is created.
+**Current milestone: 2 — explainable matching and configurable policy.** Source
+models, fictional data, ingestion, normalization, and reconciliation are
+implemented. SQLite, human decisions, Streamlit, and Salesforce export remain
+future milestones. Every generated match result is `unreviewed`.
 
 ## Problem
 
@@ -15,7 +16,7 @@ agents, and related entities can create misleading apparent matches. Finding
 data does not make it trusted. The eventual workflow must preserve evidence,
 explain its recommendation, and require a human decision before export.
 
-## Run Milestone 1
+## Run the POC
 
 Requires Python 3.11 or later. From this project directory:
 
@@ -28,10 +29,44 @@ python -m pytest
 
 In this workspace, a working `.venv` has already been created with the bundled
 Python runtime. To rerun tests without using macOS's developer-tools-dependent
-system Python, run `.venv/bin/python -m pytest` from this directory. Milestone 1
-verification completed with **79 passing tests**, Python 3.12.14, and pytest 8.4.2.
+system Python, run `.venv/bin/python -m pytest` from this directory. Verification
+uses Python 3.12.14 and pytest 8.4.2; the current full suite has 207 passing tests.
 
-Load the sample data in Python after installing the project:
+Generate an inspectable matching analysis report from the project directory:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership
+```
+
+This prints 6 `ready_for_review`, 8 `needs_research`, and 1 `conflict`, then writes
+`exports/matching_report.json`. All 15 results remain `unreviewed`. The report
+contains original and normalized evidence, every candidate comparison, scores,
+discrepancy codes, explanations, and policy/algorithm versions. It is not a
+Salesforce payload. The generated directory is ignored by Git.
+
+Self-review fixes reject placeholder evidence, restrict fuzzy readiness to
+explicit minor word variations, preserve name identifiers, and prevent blank
+candidates from hiding conflicts. Report output cannot replace input feeds or
+policy files, including through symbolic or hard links, and report replacement
+is atomic. Corroboration fields and evidence counts are computed rather than
+independently supplied. Regression tests cover each reviewed failure.
+
+The explicit source path avoids an observed macOS hidden-file flag on the
+editable-install `.pth` file in this workspace, which causes Python to skip it.
+Clearing that flag temporarily fixed imports, but it returned. `PYTHONPATH=src`
+and pytest's source-path configuration work without relying on that file. On a
+normally installed environment, `python -m net_lease_ownership` also works.
+
+To use different fixtures, policy, or report location:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership \
+  --data-dir data --config config/matching.toml \
+  --output exports/matching_report.json
+```
+
+Load the sample data in Python after installing the project (or start Python
+with `PYTHONPATH=src` in this workspace):
 
 ```python
 from net_lease_ownership.ingestion import load_dataset
@@ -57,6 +92,10 @@ net-lease-ownership-intelligence/
     pyproject.toml
     .gitignore
     .env.example
+    config/
+        matching.toml
+    docs/
+        MATCHING.md
     data/
         properties.csv
         county_records.csv
@@ -64,13 +103,19 @@ net-lease-ownership-intelligence/
         SCENARIOS.md
     src/net_lease_ownership/
         __init__.py
+        __main__.py
         models.py
         normalization.py
         ingestion.py
+        policy.py
+        matching.py
     tests/
         test_models.py
         test_normalization.py
         test_ingestion.py
+        test_policy.py
+        test_matching.py
+        test_report.py
 ```
 
 The named package under `src/` supports predictable imports and keeps business
@@ -85,7 +130,7 @@ flowchart TD
     C[Fictional county CSV] --> I
     E[Fictional entity CSV] --> I
     I --> N[Preserve originals and normalize]
-    N --> M[Milestone 2: explainable matching]
+    N --> M[Explainable matching and configurable rules]
     M --> DB[(Milestone 3: SQLite)]
     DB --> R[Milestones 3 and 4: human review]
     R --> A[Explicit approval of reviewed evidence]
@@ -101,11 +146,15 @@ flowchart TD
 
 Each milestone ends with tests and product-owner review before the next begins.
 
-For Milestone 1 review, inspect `data/SCENARIOS.md`, the original feed values in
-the three CSVs, and the normalization examples in `tests/test_normalization.py`.
-Confirm that the cases resemble the ownership research problems you want to
-explain in an interview. The repository is initialized locally on `main`; no
-commit, GitHub repository, or remote publication has been created.
+For Milestone 2 review, inspect [matching rules and sample outcomes](docs/MATCHING.md),
+`config/matching.toml`, and the generated analysis report. Confirm that the
+explanations and conservative handling of conflicts, possible related entities,
+and multiple candidates fit the intended ownership-research workflow.
+
+Milestone 1 was committed and pushed to
+[ownership-intelligence](https://github.com/templeanderson/ownership-intelligence).
+Milestone 2 changes are local for product-owner review; they have not been
+committed or pushed.
 
 ## Models and source provenance
 
@@ -117,14 +166,16 @@ remain separate fields because they describe different roles.
 
 Company names have a suffix-preserving normalized value and a comparison value
 that removes a trailing legal suffix. A separate normalized-record hierarchy is
-unnecessary for this small POC. `NORMALIZATION_VERSION` identifies the current
-algorithm; recording it with persisted evidence is planned for Milestone 3.
+unnecessary for this small POC. Match results record normalization and matching
+versions, policy version, and a fingerprint of the actual policy values.
 
-Disposition and review-status enums reserve separate concepts for later work:
+Disposition and review-status enums represent separate concepts:
 `ready_for_review` is not approval. Source records carry no review status. The
-later review layer must default to `unreviewed`, require a human decision, and
+matching layer always produces `unreviewed` results. The later review layer must
+require a human decision and
 bind approval to the specific evidence reviewed. Changed evidence requires new
-review. These controls are planned, not implemented in Milestone 1.
+review. Persisted human decisions and guarded export remain planned for later
+milestones.
 
 ## Sample data and validation
 
@@ -140,7 +191,7 @@ Multiple entity candidates for one property are allowed.
 
 Loaders reject incorrect/duplicate headers, malformed rows, duplicate identifiers,
 invalid dates, blank required fields, and unknown property associations. A source
-with missing owner/entity or address evidence is retained so future matching can
+with missing owner/entity or address evidence is retained so matching can
 explain the missing evidence. A header-only feed is valid; an empty property list
 is not. Original strings are retained, including whitespace and punctuation.
 
@@ -153,15 +204,20 @@ is not. Original strings are retained, including whitespace and punctuation.
   becomes a word separator.
 - Optional removal of one trailing legal suffix keeps meaningful name tokens.
 - Common street and directional abbreviations are normalized before the first
-  comma. `Ste.` and `#` become `suite`; apartment identifiers stay distinct.
+  comma, which is retained to keep street and city roles stable on repeated
+  normalization. `Ste.` and `#` become `suite`; apartment identifiers stay distinct.
 - House numbers, unit numbers, city/state text, and postal-code digits remain.
-- Blank values stay blank. Two missing addresses must not count as corroboration.
+- Blank values stay blank. Placeholders remain visible but do not count as useful
+  evidence. Address corroboration requires a basic numbered street or PO box.
 
 Normalization does not expand `Med` to `Medical`, singularize `Properties`,
 geocode addresses, establish identity, or infer parent/child relationships.
-Abbreviation maps are local constants in Milestone 1. Matching thresholds, score
-weights, and policy configuration will be considered in Milestone 2. There is no
-matching algorithm or confidence calculation in this milestone.
+Abbreviation maps remain versioned normalization constants. Matching thresholds,
+score weights, accepted statuses, allowed minor name-variation pairs, and generic
+name tokens are configurable in
+`config/matching.toml`, using Python's built-in TOML reader rather than adding a
+YAML dependency. See [matching documentation](docs/MATCHING.md) for the formula
+and the evidence rules that take precedence over the score.
 
 ## Limitations and safety boundaries
 
@@ -170,13 +226,19 @@ validation. Inputs should use comma-separated street/city/state segments.
 Directional street names, unusual punctuation, legal-name conventions, and
 international addresses may need different rules. Address equality is not proof
 of ownership; address disagreement is not necessarily an ownership conflict.
+Word-number addresses such as `One Main Street` are outside the current evidence
+format and require research. Unlisted spelling variations also require research,
+even with a high similarity score. Normalization, matching, and the default
+policy now use version 2; original CSV evidence is unchanged.
 
 There is no corporate hierarchy model. A possible parent remains a research
 hint and must never silently replace a property-specific ownership entity.
 
 No live records are scraped, no production systems are connected, and no LLM is
-used for normalization. The future matching score will be an operational review
-priority, not a statistically calibrated probability. The future export layer
+used. The matching score is an operational review priority, not a statistically
+calibrated probability. Distinct source labels do not prove independent upstream
+data, source dates do not establish current ownership, and even a score of 100
+may require research. The future export layer
 must require persisted human approval and validate fields, with dry-run output
 only in V1.
 
@@ -184,9 +246,11 @@ only in V1.
 
 The product owner supplied the business problem, specification, milestone
 boundaries, and approved design. Codex served as the primary coding agent for
-Milestone 1: scaffolding the project, implementing source models and loaders,
-creating fictional fixtures, writing normalization and tests, and reviewing
-implementation decisions. Codex does not independently own the project.
+Milestones 1 and 2: scaffolding the project, implementing source models and
+loaders, creating fictional fixtures, writing normalization and matching,
+adding tests, diagnosing a local package-import issue, refining candidate
+ranking, and reviewing implementation decisions. Codex does not independently
+own the project.
 
 ## Future work
 

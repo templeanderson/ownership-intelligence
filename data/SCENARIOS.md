@@ -7,8 +7,10 @@ and 15 entity candidates. Each feed has its own source-record identifiers.
 
 `property_id` in a feed means the record is associated with that property's
 research packet. In the entity feed it does **not** assert confirmed ownership.
-The labels below are intended test scenarios for Milestone 2, not computed
-results or approval decisions. All evidence must still receive human review.
+The labels below describe fixture intent, not approval decisions. Milestone 2
+implements and tests these scenarios; actual default-policy results are listed
+in [matching documentation](../docs/MATCHING.md). All evidence must still receive
+human review.
 
 | Property | Scenario | Intended matching behavior in Milestone 2 |
 |---|---|---|
