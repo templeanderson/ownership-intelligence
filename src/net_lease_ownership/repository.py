@@ -170,8 +170,8 @@ class Repository:
         self._connection.close()
 
     @contextmanager
-    def _transaction(self):
-        self._connection.execute("BEGIN IMMEDIATE")
+    def _transaction(self, *, write: bool = True):
+        self._connection.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         try:
             yield
             self._connection.commit()
@@ -208,6 +208,11 @@ class Repository:
         return tuple(ReviewEvent(**(dict(row) | {
             "previous_state": ReviewStatus(row["previous_state"]) if row["previous_state"] else None,
             "new_state": ReviewStatus(row["new_state"])})) for row in rows)
+
+    def get_review_context(self, property_id: str) -> tuple[ReviewRecord, tuple[ReviewEvent, ...]]:
+        """Read current evidence and its audit history in one consistent snapshot."""
+        with self._transaction(write=False):
+            return self.get_record(property_id), self.history(property_id)
 
     def _append_event(self, record: ReviewRecord, *, previous_state: ReviewStatus | None,
                       previous_snapshot_id: int | None, actor_kind: str,

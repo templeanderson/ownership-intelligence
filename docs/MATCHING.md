@@ -203,7 +203,8 @@ writes, rather than relying on a success/error message.
 
 Matching tests do not prove legal ownership accuracy. Milestone 3 adds separate
 tests for human decisions, audit preservation, and approval invalidation after
-evidence changes. The Salesforce boundary remains in a later milestone.
+evidence changes. [Milestone 5](SALESFORCE.md) adds guarded Salesforce proposals
+from current human approval; matching never authorizes export.
 
 ## Limits and optional AI extension
 

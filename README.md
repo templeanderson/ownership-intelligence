@@ -3,10 +3,9 @@
 A portfolio proof of concept for reconciling commercial-property ownership
 evidence before human review and a guarded Salesforce payload export.
 
-**Current milestone: 4 — Streamlit dashboard and human review interface.** Source
-models, fictional data, normalization, reconciliation, SQLite audit history, and
-both browser and command-line review workflows are implemented. Salesforce
-payload generation remains a future milestone.
+**Current milestone: 5 — Guarded Salesforce JSON export.** Source models,
+normalization, reconciliation, SQLite audit history, Streamlit review, and local
+dry-run upsert proposals are implemented. No Salesforce connection is included.
 Matching never approves a record; human decisions are stored separately.
 
 ## Problem
@@ -31,7 +30,7 @@ python -m pytest
 In this workspace, a working `.venv` has already been created with the bundled
 Python runtime. To rerun tests without using macOS's developer-tools-dependent
 system Python, run `.venv/bin/python -m pytest` from this directory. Verification
-uses Python 3.12.14 and pytest 8.4.2; the current full suite has 348 passing tests.
+uses Python 3.12.14 and pytest 8.4.2; the current full suite has 413 passing tests.
 
 Start the local Streamlit app from this project directory:
 
@@ -44,7 +43,9 @@ source and candidate details, human decision forms, audit history, and an
 approved-record view. It uses `ownership.sqlite3` by default. If no database
 exists, click **Load sample property records**; initial loading never approves
 records. Approval requires an explicit candidate, decision, and reviewer name.
-Overrides also require a rationale. See [UI instructions](docs/UI.md).
+Overrides also require a rationale. Approved records can download a proposed
+Salesforce JSON upsert. See [UI instructions](docs/UI.md) and
+[guarded export rules](docs/SALESFORCE.md).
 
 Generate an inspectable matching analysis report from the project directory:
 
@@ -136,6 +137,7 @@ net-lease-ownership-intelligence/
         MATCHING.md
         REVIEW.md
         UI.md
+        SALESFORCE.md
     data/
         properties.csv
         county_records.csv
@@ -153,6 +155,7 @@ net-lease-ownership-intelligence/
         review.py
         review_cli.py
         app.py
+        salesforce.py
     tests/
         test_models.py
         test_normalization.py
@@ -164,6 +167,7 @@ net-lease-ownership-intelligence/
         test_review.py
         test_review_cli.py
         test_app.py
+        test_salesforce.py
 ```
 
 The named package under `src/` supports predictable imports and keeps business
@@ -182,7 +186,7 @@ flowchart TD
     M --> DB[(SQLite evidence snapshots)]
     DB --> R[Streamlit human review and audit history]
     R --> A[Explicit approval of reviewed evidence]
-    A --> X[Milestone 5: guarded Salesforce JSON dry run]
+    A --> X[Guarded Salesforce JSON dry run]
 ```
 
 1. **Milestone 1:** scaffold, source models, samples, normalization, tests.
@@ -194,15 +198,15 @@ flowchart TD
 
 Each milestone ends with tests and product-owner review before the next begins.
 
-For Milestone 4 review, inspect [UI instructions](docs/UI.md). Open P001 for a
-straightforward comparison, P003 for a conflict, and P013 for multiple candidates.
-Confirm that empty form defaults prevent accidental approval and that the
-approved view shows the explicitly selected entity.
+For Milestone 5 review, inspect [guarded export rules](docs/SALESFORCE.md).
+Approve P013's second candidate with a rationale and inspect its proposed JSON.
+Confirm unapproved properties cannot export and changing a decision removes
+export eligibility.
 
 Milestone 1 was committed and pushed to
 [ownership-intelligence](https://github.com/templeanderson/ownership-intelligence).
-Milestones 2 and 3 are committed locally and have not been pushed. Milestone 4
-changes are local and uncommitted. Development stops before Milestone 5.
+Milestones 2 through 4 are committed locally and have not been pushed. Milestone 5
+changes are local and uncommitted. Development stops before Milestone 6.
 
 ## Models and source provenance
 
@@ -221,8 +225,9 @@ Disposition and review-status enums represent separate concepts:
 `ready_for_review` is not approval. Source records carry no review status. The
 matching layer always produces `unreviewed` results. SQLite stores human decisions
 separately and binds approval to a specific evidence snapshot and selected
-candidate. Changed evidence requires new review. Salesforce export remains a
-later milestone; persisted approval alone does not validate an export payload.
+candidate. Changed evidence requires new review. The Salesforce export layer
+checks current human approval, audit consistency, and payload fields; persisted
+approval alone does not validate an export payload.
 
 ## Sample data and validation
 
@@ -293,11 +298,12 @@ only in V1.
 
 The product owner supplied the business problem, specification, milestone
 boundaries, and approved design. Codex served as the primary coding agent for
-Milestones 1 through 4: scaffolding the project, implementing source models and
+Milestones 1 through 5: scaffolding the project, implementing source models and
 loaders, creating fictional fixtures, writing normalization and matching,
 adding tests, diagnosing a local package-import issue, refining candidate
 ranking, implementing SQLite review and audit controls, building the Streamlit
-interface, and testing UI interactions and implementation decisions. Codex does
+interface, adding guarded dry-run export, and testing workflow interactions
+and implementation decisions. Codex does
 not independently own the project.
 
 ## Future work

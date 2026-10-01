@@ -86,3 +86,23 @@ def test_module_entry_point_works_in_separate_processes(tmp_path):
     shown = subprocess.run([*command, "show", "P001"], cwd=ROOT, env=environment,
                            capture_output=True, text=True, check=True)
     assert json.loads(shown.stdout)["review_status"] == "unreviewed"
+
+
+def test_cli_exports_only_current_human_approval(tmp_path, monkeypatch, capsys):
+    db = tmp_path / "review.sqlite3"
+    invoke(monkeypatch, capsys, db, "load", "--data-dir", str(ROOT / "data"),
+           "--config", str(ROOT / "config/matching.toml"))
+    monkeypatch.setattr(sys, "argv", ["review", "--db", str(db), "export", "P001"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "Only a currently approved" in captured.err
+    current = invoke(monkeypatch, capsys, db, "show", "P001")
+    invoke(monkeypatch, capsys, db, "decide", "P001", "--action", "approved", "--reviewer", "Reviewer",
+           "--snapshot-id", str(current["snapshot_id"]), "--revision", str(current["revision"]), "--candidate", "0")
+    payload = invoke(monkeypatch, capsys, db, "export", "P001")
+    assert payload["dry_run"] is True
+    assert payload["records"][0]["Ownership_Entity__c"] == "ABC MEDICAL HOLDINGS, L.L.C."
+    assert invoke(monkeypatch, capsys, db, "show", "P001")["review_status"] == "approved"

@@ -13,6 +13,7 @@ from .models import ReviewStatus
 from .policy import load_policy
 from .repository import Repository
 from .review import submit_review
+from .salesforce import generate_payload
 
 
 def main() -> None:
@@ -23,7 +24,7 @@ def main() -> None:
     load.add_argument("--data-dir", type=Path, default=Path("data"))
     load.add_argument("--config", type=Path, default=Path("config/matching.toml"))
     commands.add_parser("list", help="Show the current review queue")
-    for name in ("show", "history", "decide"):
+    for name in ("show", "history", "decide", "export"):
         command = commands.add_parser(name)
         command.add_argument("property_id")
         if name == "decide":
@@ -55,6 +56,8 @@ def main() -> None:
                 output = asdict(repository.get_record(args.property_id))
             elif args.command == "history":
                 output = [asdict(event) for event in repository.history(args.property_id)]
+            elif args.command == "export":
+                output = generate_payload(repository, args.property_id)
             else:
                 output = asdict(submit_review(repository, args.property_id, ReviewStatus(args.action),
                     reviewer_name=args.reviewer, expected_snapshot_id=args.snapshot_id,

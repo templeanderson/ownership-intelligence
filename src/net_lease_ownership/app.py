@@ -3,6 +3,7 @@
 from collections import Counter
 from datetime import datetime
 import hashlib
+import json
 import logging
 import os
 from pathlib import Path
@@ -18,6 +19,7 @@ from net_lease_ownership.models import ReviewStatus
 from net_lease_ownership.policy import load_policy
 from net_lease_ownership.repository import Repository, ReviewRecord
 from net_lease_ownership.review import StaleReviewError, submit_review
+from net_lease_ownership.salesforce import PayloadError, generate_payload
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -131,10 +133,16 @@ def _detail(repository: Repository, property_id: str, database: Path) -> None:
         format_func=lambda i: f"{i + 1}: " + (
             evidence["candidates"][i]["entity_record"]["entity_name"] or "Company name missing"
             if evidence["candidates"][i]["entity_record"] else "No company record"))
-    _analysis(evidence, evidence["candidates"][choice if choice is not None else 0])
+    preview_index = choice if choice is not None else (
+        displayed.selected_candidate if displayed.selected_candidate is not None else 0)
+    _analysis(evidence, evidence["candidates"][preview_index])
     for index, candidate in enumerate(evidence["candidates"]):
-        with st.expander(f"Company option {index + 1}" + (" — selected" if choice == index else ""),
-                         expanded=(choice == index or (choice is None and index == 0))):
+        label = f"Company option {index + 1}"
+        if displayed.selected_candidate == index:
+            label += " — approved"
+        elif choice == index:
+            label += " — selected"
+        with st.expander(label, expanded=(index == preview_index)):
             county, entity = st.columns(2)
             with county:
                 st.write("**County owner**")
@@ -172,6 +180,19 @@ def _detail(repository: Repository, property_id: str, database: Path) -> None:
             st.session_state.pop("displayed_record", None)
             st.session_state["review_message"] = f"{action} decision saved for {property_id}."
             st.rerun()
+    if displayed.review_status == ReviewStatus.APPROVED:
+        st.subheader("Salesforce export")
+        approved_name = evidence["candidates"][displayed.selected_candidate]["entity_record"]["entity_name"]
+        st.caption(f"Download a proposal for {approved_name}. No data is sent to Salesforce.")
+        try:
+            payload = generate_payload(repository, property_id,
+                expected_snapshot_id=displayed.snapshot_id, expected_revision=displayed.revision)
+        except PayloadError:
+            st.error("Export unavailable. Refresh this property and check its approval and records.")
+        else:
+            st.download_button("Download proposed JSON", json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False),
+                               file_name=f"salesforce-{property_id}.json", mime="application/json",
+                               key=f"export_{token}")
     st.subheader("Review history")
     history = []
     for event in repository.history(property_id):
@@ -182,8 +203,12 @@ def _detail(repository: Repository, property_id: str, database: Path) -> None:
         note = event.note or ""
         if event.actor_kind == "system":
             note = "Property records loaded." if event.previous_state is None else "Property records changed. A new review is needed."
+        try:
+            event_time = datetime.fromisoformat(event.timestamp).astimezone(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d %I:%M %p %Z")
+        except (TypeError, ValueError, OverflowError):
+            event_time = "Invalid date"
         history.append({
-            "Date and time": datetime.fromisoformat(event.timestamp).astimezone(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d %I:%M %p %Z"),
+            "Date and time": event_time,
             "Reviewed by": event.reviewer_name or "System",
             "Previous status": LABELS[event.previous_state.value] if event.previous_state else "—",
             "New status": LABELS[event.new_state.value], "Approved company": company, "Note": note,
@@ -230,7 +255,7 @@ def main() -> None:
                 return
             if page == "Approved records":
                 st.subheader("Approved records")
-                st.info("Salesforce export is not available yet.")
+                st.caption("Select an approved property to download its proposed Salesforce JSON.")
                 visible = [r for r in records if r.review_status == ReviewStatus.APPROVED]
                 rows = _rows(visible)
                 for row, record in zip(rows, visible):

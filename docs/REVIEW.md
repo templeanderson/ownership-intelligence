@@ -2,8 +2,8 @@
 
 Matching recommends a disposition. A human makes a separate review decision.
 Loading evidence never creates an approval. [Milestone 4's Streamlit interface](UI.md)
-uses the same decision rules. Salesforce payload generation and validation are
-Milestone 5. Persistence/review use Python's standard library and SQLite.
+uses the same decision rules. [Milestone 5 guarded Salesforce proposals](SALESFORCE.md)
+use current persisted approval. Persistence/review use Python's standard library and SQLite.
 
 ## Run and inspect
 
@@ -110,7 +110,7 @@ disposition or the **selected candidate's** disposition is not `ready_for_review
 Thus, a ready property cannot silently authorize an unrelated conflicting
 candidate. Notes remain optional for ordinary ready approvals, research, and
 rejection. Rationale is recorded, not independently verified. An approved record
-may still fail the future Salesforce payload validation.
+may still fail Salesforce proposal validation.
 
 The fingerprint includes originals, source dates, candidate identities, property
 fields, normalization/matching versions, policy metadata, and derived analysis.
@@ -156,7 +156,7 @@ to the repository method perform the same validation.
 
 ## Verification and limits
 
-Run `.venv/bin/python -m pytest`. The full suite has **328 passing tests**,
+Run `.venv/bin/python -m pytest`. The full suite has **413 passing tests**,
 including 43 regressions added after Milestone 3 self-review. Tests reopen actual temporary
 databases, inspect stored history and originals, exercise every human transition,
 use two independent connections for stale submissions, and force database
@@ -182,7 +182,8 @@ There is no deletion, retirement, or authoritative full-feed replacement policy
 yet. To start an independent experiment, choose a new database path. The
 application does not infer parent/child accounts or change preserved evidence
 during review. Streamlit screens are implemented separately in Milestone 4.
-No Salesforce module is implemented yet.
+Salesforce proposals are implemented separately in Milestone 5; no live write
+connection is included.
 
 Manually inspect P001 for a straightforward match, P003 for conflicting names,
 and P013 for multiple candidates. Verify the candidate index before approving;

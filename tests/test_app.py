@@ -226,11 +226,11 @@ def test_bad_database_shows_error_without_destroying_file(tmp_path, monkeypatch)
     assert path.read_bytes() == before
 
 
-def test_no_salesforce_payload_or_export_controls(database):
+def test_unapproved_view_has_no_salesforce_download(database):
     app = run_app()
     app.radio(key="page").set_value("Approved records").run()
     assert not app.exception
-    assert any("Salesforce export is not available yet" in message.value for message in app.info)
+    assert any("proposed Salesforce JSON" in message.value for message in app.caption)
     assert not app.get("download_button")
     assert all("export" not in button.label.casefold() for button in app.button)
 
@@ -265,3 +265,88 @@ def test_approved_view_allows_revocation_and_updates_count(database):
             ReviewStatus.UNREVIEWED, ReviewStatus.APPROVED, ReviewStatus.REJECTED]
     app.radio(key="page").set_value("Dashboard").run()
     assert by_label(app.metric, "Approved").value == "0"
+
+
+def test_approved_download_disappears_when_review_changes(database):
+    app = run_app()
+    open_record(app)
+    fill(app)
+    save(app)
+    app.radio(key="page").set_value("Approved records").run()
+    assert len(app.get("download_button")) == 1
+    shown = app.session_state["displayed_record"]
+    with Repository(database) as other:
+        submit_review(other, "P001", ReviewStatus.APPROVED, reviewer_name="Other reviewer",
+            expected_snapshot_id=shown.snapshot_id, expected_revision=shown.revision,
+            selected_candidate=0)
+    app.run()
+    assert not app.exception
+    assert not app.get("download_button")
+    assert any("Export unavailable" in error.value for error in app.error)
+    app.button(key="refresh_record").click().run()
+    assert len(app.get("download_button")) == 1
+    fill(app, action="Reject", candidate=None)
+    save(app)
+    assert not app.get("download_button")
+
+
+def test_approved_view_and_actual_download_use_persisted_second_company(database, monkeypatch):
+    from streamlit.runtime.memory_media_file_storage import MemoryMediaFileStorage
+    import json
+
+    # AppTest has no public download-content accessor. Read the actual media
+    # bytes it registers, rather than mocking the export service or button.
+    storage = MemoryMediaFileStorage('/mock/media')
+    monkeypatch.setattr('streamlit.testing.v1.app_test.MemoryMediaFileStorage', lambda _: storage)
+    app = run_app()
+    open_record(app, 'P013')
+    fill(app, candidate=1, note='Verified the second company independently.')
+    save(app)
+    app.radio(key='page').set_value('Approved records').run()
+    assert not app.exception
+    assert by_label(app.selectbox, 'Company to approve').value is None
+    assert by_label(app.selectbox, 'Decision').value is None
+    panels = [element for element in app.expander if element.label.startswith('Company option')]
+    assert [panel.label for panel in panels if panel.proto.expanded] == ['Company option 2 — approved']
+
+    def downloaded_fields():
+        button = app.get('download_button')[0]
+        media = storage.get_file(Path(button.proto.url).name)
+        assert media.filename == 'salesforce-P013.json'
+        assert media.mimetype == 'application/json'
+        proposal = json.loads(media.content)
+        assert proposal['dry_run'] is True
+        assert proposal['operation'] == 'upsert'
+        assert len(proposal['records']) == 1
+        return proposal['records'][0]
+
+    with Repository(database) as repo:
+        approved = repo.get_record('P013')
+        candidate = approved.evidence['candidates'][1]
+    fields = downloaded_fields()
+    assert fields['Ownership_Entity__c'] == candidate['entity_record']['entity_name']
+    assert fields['Ownership_Confidence__c'] == candidate['confidence_score']
+    provenance = json.loads(fields['Source_Provenance__c'])
+    assert provenance['selected_candidate'] == 1
+    assert provenance['entity_record'] == candidate['entity_record']
+    assert provenance['reviewer_note'] == 'Verified the second company independently.'
+    assert any(candidate['entity_record']['entity_name'] in caption.value for caption in app.caption)
+
+    # A draft change may display a different comparison but cannot change the
+    # persisted approval or the company named in the downloaded proposal.
+    by_label(app.selectbox, 'Company to approve').set_value(0).run()
+    assert downloaded_fields()['Ownership_Entity__c'] == candidate['entity_record']['entity_name']
+    with Repository(database) as repo:
+        assert repo.get_record('P013') == approved
+
+
+def test_invalid_approval_timestamp_blocks_export_without_crashing_history(database, monkeypatch):
+    monkeypatch.setattr('net_lease_ownership.repository._timestamp', lambda: '0001-01-01T00:00:00+14:00')
+    app = run_app()
+    open_record(app)
+    fill(app)
+    save(app)
+    assert not app.exception
+    assert any('Export unavailable' in error.value for error in app.error)
+    assert not app.get('download_button')
+    assert 'Invalid date' in list(app.dataframe[-1].value['Date and time'])
