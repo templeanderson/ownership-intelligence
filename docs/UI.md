@@ -98,7 +98,7 @@ database. Reviewer names remain caller-supplied, not authenticated identities.
 - Keep a detail open while changing its evidence through the CLI in another terminal;
   submission must require reloading and inspecting the current record.
 
-The full suite has **413 passing tests**, including 23 Streamlit AppTest cases
+The full suite has **414 passing tests**, including 23 Streamlit AppTest cases
 against actual `app.py`. Tests drive widgets and forms, then reopen temporary
 databases to verify decisions and audit events. Coverage includes counts, source
 rendering, defaults, all decisions, missing inputs, rationale, selected-candidate

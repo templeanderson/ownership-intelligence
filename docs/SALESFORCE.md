@@ -78,7 +78,7 @@ access. Reviewer names remain caller-supplied.
 
 ## Verification and manual inspection
 
-The full suite has 413 passing tests. Salesforce tests exercise every unapproved
+The full suite has 414 passing tests. Salesforce tests exercise every unapproved
 state, selected second-candidate export, provenance, malformed approvals, disabled
 write mode, revocation, evidence changes, stale display tokens, and consistent
 reads while a second connection changes review state. Regressions verify
@@ -93,4 +93,5 @@ the exported company, score, sources, selected index, and reviewer note. Mark th
 property Needs Research or Reject and confirm the download disappears. Use a
 separate demo database if you want to preserve your current review decisions.
 
-Development stops before Milestone 6. No real Salesforce integration is included.
+Milestone 6 documents and verifies this boundary. The six-milestone scope is
+complete; no real Salesforce integration is included.

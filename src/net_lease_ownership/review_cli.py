@@ -1,4 +1,4 @@
-"""Load, inspect, and explicitly review local evidence before the Streamlit milestone."""
+"""Load, inspect, review, and export local evidence with explicit human decisions."""
 
 import argparse
 from dataclasses import asdict

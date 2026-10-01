@@ -1,314 +1,200 @@
 # Net-Lease Ownership Intelligence POC
 
-A portfolio proof of concept for reconciling commercial-property ownership
-evidence before human review and a guarded Salesforce payload export.
+A local portfolio proof of concept for reconciling commercial-property ownership
+records, reviewing uncertain matches, and proposing a Salesforce upsert only
+after explicit human approval.
 
-**Current milestone: 5 — Guarded Salesforce JSON export.** Source models,
-normalization, reconciliation, SQLite audit history, Streamlit review, and local
-dry-run upsert proposals are implemented. No Salesforce connection is included.
-Matching never approves a record; human decisions are stored separately.
+## Why this workflow matters
 
-## Problem
+County and corporate records can disagree. Formatting differences can hide a
+match, while similar names, shared addresses, registered agents, and related
+companies can create false positives. Finding a record does not make it trusted.
+This workflow preserves evidence, explains its recommendation, and separates
+matching from human decisions and export eligibility.
 
-Ownership records can disagree across county and corporate sources. Formatting
-differences can conceal agreement, while similar company names, shared registered
-agents, and related entities can create misleading apparent matches. Finding
-data does not make it trusted. The eventual workflow must preserve evidence,
-explain its recommendation, and require a human decision before export.
+## Quick start
 
-## Run the POC
-
-Requires Python 3.11 or later. From this project directory:
+Requires Python 3.11 or later. Run these commands from the repository directory
+on macOS or Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m pytest
+PYTHONPATH=src python -m streamlit run src/net_lease_ownership/app.py
 ```
 
-In this workspace, a working `.venv` has already been created with the bundled
-Python runtime. To rerun tests without using macOS's developer-tools-dependent
-system Python, run `.venv/bin/python -m pytest` from this directory. Verification
-uses Python 3.12.14 and pytest 8.4.2; the current full suite has 413 passing tests.
+On Windows, create the environment with `py -m venv .venv` and activate with
+`.venv\Scripts\Activate.ps1`. Set `$env:PYTHONPATH = "src"` before running the
+Streamlit command without the `PYTHONPATH=src` prefix. Windows is not locally verified.
 
-Start the local Streamlit app from this project directory:
+Open `http://127.0.0.1:8501`, then click **Load sample property records**.
+An untouched sample portfolio contains 15 properties: 6 ready for review,
+8 needing research, 1 conflict, and 0 approved. Matching never approves a record.
+An existing database keeps decisions when reloaded with identical evidence.
 
-```bash
-PYTHONPATH=src .venv/bin/python -m streamlit run src/net_lease_ownership/app.py
+The app provides a dashboard, filtered review queue, compact record comparisons,
+human decisions, audit history, and downloads for valid approvals. Start with
+[the isolated demo walkthrough](docs/DEMO.md), then see [UI instructions](docs/UI.md).
+
+The default database is `ownership.sqlite3` in the repository. `NLOI_DATABASE`
+can select another database; its parent directory must exist. `.env.example`
+documents this optional setting. The app does not automatically load `.env` files.
+No credentials, AI API, or Salesforce org are required. The Streamlit server
+binds to localhost and disables usage statistics.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    P[Property list] --> I[Load and validate source records]
+    C[Fictional county feed] --> I
+    E[Fictional company feed] --> I
+    I --> N[Preserve originals and normalize]
+    N --> M[Explainable entity comparison]
+    M --> Q{Corroboration and conflict rules}
+    Q --> R[Ready for review]
+    Q --> U[Needs research or conflict]
+    R --> DB[(SQLite evidence and review state)]
+    U --> DB
+    DB --> H[Human review and audit history]
+    H --> A[Explicit approval of one company]
+    H --> B[Research or reject: no export]
+    A --> V[Validate current approval and payload fields]
+    V --> X[Salesforce JSON proposal: dry run only]
 ```
 
-Open `http://127.0.0.1:8501`. The app has a dashboard, a filterable review queue,
-source and candidate details, human decision forms, audit history, and an
-approved-record view. It uses `ownership.sqlite3` by default. If no database
-exists, click **Load sample property records**; initial loading never approves
-records. Approval requires an explicit candidate, decision, and reviewer name.
-Overrides also require a rationale. Approved records can download a proposed
-Salesforce JSON upsert. See [UI instructions](docs/UI.md) and
-[guarded export rules](docs/SALESFORCE.md).
+The business logic uses the Python standard library. Streamlit supplies the UI;
+pytest supplies development tests. SQLite stores immutable evidence snapshots,
+current review state, and append-only audit events. There is no ORM, background
+worker, external matcher, or separate normalized-record hierarchy.
 
-Generate an inspectable matching analysis report from the project directory:
+| Area | Implementation and details |
+|---|---|
+| Inputs and models | `ingestion.py`, `models.py`; [fictional scenarios](data/SCENARIOS.md) |
+| Normalization and matching | `normalization.py`, `matching.py`, `policy.py`; [rules and score formula](docs/MATCHING.md) |
+| Persistence and review | `repository.py`, `review.py`, `review_cli.py`; [schema and commands](docs/REVIEW.md) |
+| Browser workflow | `app.py`; [UI and decision rules](docs/UI.md) |
+| Guarded proposal | `salesforce.py`; [field mapping and export validation](docs/SALESFORCE.md) |
+| Verification | `tests/`, `.github/workflows/tests.yml`; [validation record](docs/VALIDATION.md) |
+
+## Matching strategy
+
+Names and addresses are normalized deterministically while originals remain
+intact. Company-name comparison handles punctuation, casing, dotted LLC forms,
+and a trailing legal suffix. Address comparison handles common US abbreviations
+while retaining house, suite, city, and postal identifiers.
+
+Name similarity averages character comparisons in both directions. The default
+workflow score is `70 × name similarity + 30 × address agreement`, with missing
+components contributing zero. The score prioritizes review; it is not a
+statistically calibrated probability or proof of ownership.
+
+Readiness requires more than a high score: two useful names, comparable agreeing
+addresses, acceptable company status, compatible legal/name identifiers, and
+exact normalized names or an explicitly allowed minor word variation. Ambiguous
+company candidates and multiple county owners require research. A shared
+address or registered agent never establishes ownership by itself.
+
+Thresholds, score weights, accepted statuses, allowed word variations, and generic
+name tokens are configurable in `config/matching.toml`. Abbreviation maps remain
+versioned normalization constants. See [matching details](docs/MATCHING.md) for
+ranking, conservative guards, and known false-positive risks.
+
+## Safety and data-quality controls
+
+- Preserve original and normalized records, source names/IDs/dates, every
+  comparison, discrepancies, and policy/algorithm versions.
+- Keep source data, matching recommendations, human review state, and export
+  eligibility separate. A ready-for-review recommendation is not approval.
+- Require an explicit decision, reviewer name, and company selection to approve.
+  Approval overriding property or selected-company warnings also requires a note.
+- Bind decisions to the reviewed evidence snapshot and revision. Changed evidence
+  invalidates prior decisions; stale submissions cannot overwrite another review.
+  Identical reimports preserve decisions and history.
+- Export only a current valid approval with a matching human audit event. Use the
+  selected company's fields and score; retain provenance and override rationale.
+  Rejection, research, and changed evidence invalidate subsequent exports.
+- Support dry-run JSON only. There is no Salesforce transport or live-write mode.
+  A downloaded proposal is a historical artifact, not authorization for a future
+  production write.
+- Validate input structure and protect source/configuration/database files from
+  report path collisions. Report replacement is atomic; malformed approvals fail
+  export validation.
+
+## Command-line workflow
+
+Generate a matching report, load SQLite evidence, inspect a property, and inspect
+its history:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m net_lease_ownership
-```
-
-This prints 6 `ready_for_review`, 8 `needs_research`, and 1 `conflict`, then writes
-`exports/matching_report.json`. All 15 results remain `unreviewed`. The report
-contains original and normalized evidence, every candidate comparison, scores,
-discrepancy codes, explanations, and policy/algorithm versions. It is not a
-Salesforce payload. The generated directory is ignored by Git.
-
-Self-review fixes reject placeholder evidence, restrict fuzzy readiness to
-explicit minor word variations, preserve name identifiers, and prevent blank
-candidates from hiding conflicts. Report output cannot replace input feeds or
-policy files, including through symbolic or hard links, and report replacement
-is atomic. Corroboration fields and evidence counts are computed rather than
-independently supplied. Regression tests cover each reviewed failure.
-
-The explicit source path avoids an observed macOS hidden-file flag on the
-editable-install `.pth` file in this workspace, which causes Python to skip it.
-Clearing that flag temporarily fixed imports, but it returned. `PYTHONPATH=src`
-and pytest's source-path configuration work without relying on that file. On a
-normally installed environment, `python -m net_lease_ownership` also works.
-
-To use different fixtures, policy, or report location:
-
-```bash
-PYTHONPATH=src .venv/bin/python -m net_lease_ownership \
-  --data-dir data --config config/matching.toml \
-  --output exports/matching_report.json
-```
-
-Load the sample data in Python after installing the project (or start Python
-with `PYTHONPATH=src` in this workspace):
-
-```python
-from net_lease_ownership.ingestion import load_dataset
-
-dataset = load_dataset("data")
-print(len(dataset.properties))  # 15
-county = dataset.county_records[0]
-print(county.owner_name)         # ABC Medical Holdings LLC
-print(county.owner_normalized)   # abc medical holdings llc
-print(county.owner_comparison)   # abc medical holdings
-```
-
-Load SQLite evidence, inspect a record, and inspect its audit history:
-
-```bash
 PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli load
-PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli list
 PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli show P001
 PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli history P001
 ```
 
-The default local database is `ownership.sqlite3`, ignored by Git. Initial load
-leaves all 15 records unreviewed. Identical reimports preserve decisions; changed
-evidence or policy resets a record to unreviewed and preserves history. See
-[review instructions and SQLite design](docs/REVIEW.md) for explicit decision
-commands, candidate selection, and stale-review protection.
+The matching report goes to ignored `exports/matching_report.json`. It retains
+all comparisons and never approves anything. See [review commands](docs/REVIEW.md)
+for explicit decisions using the snapshot/revision from `show`. After approval:
 
-Milestone 3 self-review fixes protect SQLite files from report replacement,
-validate database identity and the full schema on opening, and block replacement
-SQL on repository connections. Approval overriding property or selected-candidate
-warnings requires a nonblank reviewer rationale saved in audit history.
-
-The business logic uses the Python standard library. Streamlit is the UI runtime
-dependency (tested with 1.64.0); `pytest` is a development dependency. No credentials,
-AI API, live feeds, or Salesforce org are needed. `.streamlit/config.toml` binds
-the server to localhost and disables usage statistics. `NLOI_DATABASE` optionally
-selects a separate local database; it is not required.
-
-## Project layout
-
-```text
-net-lease-ownership-intelligence/
-    README.md
-    requirements.txt
-    pyproject.toml
-    .gitignore
-    .env.example
-    .streamlit/
-        config.toml
-    config/
-        matching.toml
-    docs/
-        MATCHING.md
-        REVIEW.md
-        UI.md
-        SALESFORCE.md
-    data/
-        properties.csv
-        county_records.csv
-        entity_records.csv
-        SCENARIOS.md
-    src/net_lease_ownership/
-        __init__.py
-        __main__.py
-        models.py
-        normalization.py
-        ingestion.py
-        policy.py
-        matching.py
-        repository.py
-        review.py
-        review_cli.py
-        app.py
-        salesforce.py
-    tests/
-        test_models.py
-        test_normalization.py
-        test_ingestion.py
-        test_policy.py
-        test_matching.py
-        test_report.py
-        test_repository.py
-        test_review.py
-        test_review_cli.py
-        test_app.py
-        test_salesforce.py
+```bash
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli export P001
 ```
 
-The named package under `src/` supports predictable imports and keeps business
-logic independent of the future UI. Modules are added as their milestone needs
-them, rather than creating nonfunctional review or export placeholders.
+Export prints a proposed JSON upsert, or a clear error if ineligible. Its fields
+are a proposed custom-field mapping, not a validated Salesforce REST request.
+Object name, field types/lengths, external-ID uniqueness, and permissions must be
+checked before a separately authorized future integration.
 
-## Architecture and milestone boundaries
+## Verification and GitHub readiness
 
-```mermaid
-flowchart TD
-    P[Property CSV] --> I[Load and validate]
-    C[Fictional county CSV] --> I
-    E[Fictional entity CSV] --> I
-    I --> N[Preserve originals and normalize]
-    N --> M[Explainable matching and configurable rules]
-    M --> DB[(SQLite evidence snapshots)]
-    DB --> R[Streamlit human review and audit history]
-    R --> A[Explicit approval of reviewed evidence]
-    A --> X[Guarded Salesforce JSON dry run]
-```
+The local full suite has **414 passing tests**, verified with Python 3.12.14,
+pytest 8.4.2, and Streamlit 1.64.0. Tests use temporary databases and include
+malformed inputs, false-positive guards, real review transitions, stale sessions,
+rollback, audit preservation, guarded proposals, and actual UI download bytes.
+An end-to-end subprocess test covers report → import → approval → export → revoke.
 
-1. **Milestone 1:** scaffold, source models, samples, normalization, tests.
-2. **Milestone 2:** reconciliation rules, configurable policy, explainable scores.
-3. **Milestone 3:** SQLite evidence/results and append-only human decisions.
-4. **Milestone 4:** Streamlit dashboard, review detail, and approved-record view.
-5. **Milestone 5:** validated export of explicitly approved evidence only.
-6. **Milestone 6:** documentation, cleanup, full tests, and GitHub readiness.
+The GitHub Actions workflow installs dependencies, checks them, and runs pytest
+on Python 3.11 and 3.12. It is configured locally; no remote run is claimed before
+publication. Dependency versions are bounded rather than fully locked. See
+[validation and reproducibility limits](docs/VALIDATION.md).
 
-Each milestone ends with tests and product-owner review before the next begins.
+Generated databases, reports, virtual environments, caches, and local environment
+files are ignored by Git. Fixtures are fictional. 
 
-For Milestone 5 review, inspect [guarded export rules](docs/SALESFORCE.md).
-Approve P013's second candidate with a rationale and inspect its proposed JSON.
-Confirm unapproved properties cannot export and changing a decision removes
-export eligibility.
+## Known limitations
 
-Milestone 1 was committed and pushed to
-[ownership-intelligence](https://github.com/templeanderson/ownership-intelligence).
-Milestones 2 through 4 are committed locally and have not been pushed. Milestone 5
-changes are local and uncommitted. Development stops before Milestone 6.
+This POC does not prove legal ownership accuracy. Feed property IDs associate
+records with fictional research packets; there is no live candidate discovery.
+US address normalization is illustrative, not postal validation. Source labels
+cannot establish independent upstream data, and source dates cannot establish
+current ownership. Human override notes are recorded, not independently verified.
 
-## Models and source provenance
+There is no parent/child account model. A parent company and a property-specific
+LLC can remain separate legal owners even when names or addresses overlap.
+Related-company evidence is a research hint and never substitutes the parent.
 
-`Property`, `CountyRecord`, and `EntityRecord` are immutable dataclasses. Feed
-records retain source name, source-record ID, source-as-of date, and original
-values. Derived normalized values are computed at construction and cannot be
-supplied independently. County mailing addresses and entity registered addresses
-remain separate fields because they describe different roles.
-
-Company names have a suffix-preserving normalized value and a comparison value
-that removes a trailing legal suffix. A separate normalized-record hierarchy is
-unnecessary for this small POC. Match results record normalization and matching
-versions, policy version, and a fingerprint of the actual policy values.
-
-Disposition and review-status enums represent separate concepts:
-`ready_for_review` is not approval. Source records carry no review status. The
-matching layer always produces `unreviewed` results. SQLite stores human decisions
-separately and binds approval to a specific evidence snapshot and selected
-candidate. Changed evidence requires new review. The Salesforce export layer
-checks current human approval, audit consistency, and payload fields; persisted
-approval alone does not validate an export payload.
-
-## Sample data and validation
-
-The fixtures contain 15 properties, 14 county rows, and 15 entity candidates.
-All property/entity/agent/tenant names and street addresses are fictional. See
-[the scenario guide](data/SCENARIOS.md) for the intended cases, including missing
-sources, conflicting names, shared addresses, possible related entities, and
-multiple candidates. Scenario expectations are documentation, not match outputs.
-
-Feed `property_id` values provide explicit research-packet associations. They do
-not establish ownership and avoid pretending to implement live candidate discovery.
-Multiple entity candidates for one property are allowed.
-
-Loaders reject incorrect/duplicate headers, malformed rows, duplicate identifiers,
-invalid dates, blank required fields, and unknown property associations. A source
-with missing owner/entity or address evidence is retained so matching can
-explain the missing evidence. A header-only feed is valid; an empty property list
-is not. Original strings are retained, including whitespace and punctuation.
-
-## Deterministic normalization
-
-- Unicode compatibility normalization, case folding, and whitespace cleanup.
-- Dotted legal abbreviations such as `L.L.C.` become `llc`.
-- Terminal `Incorporated`, `Corporation`, and `Limited` become `inc`, `corp`, and `ltd`.
-- Ampersands become `and`; apostrophes/periods are removed; other punctuation
-  becomes a word separator.
-- Optional removal of one trailing legal suffix keeps meaningful name tokens.
-- Common street and directional abbreviations are normalized before the first
-  comma, which is retained to keep street and city roles stable on repeated
-  normalization. `Ste.` and `#` become `suite`; apartment identifiers stay distinct.
-- House numbers, unit numbers, city/state text, and postal-code digits remain.
-- Blank values stay blank. Placeholders remain visible but do not count as useful
-  evidence. Address corroboration requires a basic numbered street or PO box.
-
-Normalization does not expand `Med` to `Medical`, singularize `Properties`,
-geocode addresses, establish identity, or infer parent/child relationships.
-Abbreviation maps remain versioned normalization constants. Matching thresholds,
-score weights, accepted statuses, allowed minor name-variation pairs, and generic
-name tokens are configurable in
-`config/matching.toml`, using Python's built-in TOML reader rather than adding a
-YAML dependency. See [matching documentation](docs/MATCHING.md) for the formula
-and the evidence rules that take precedence over the score.
-
-## Limitations and safety boundaries
-
-Address normalization is an illustrative US-format heuristic, not postal
-validation. Inputs should use comma-separated street/city/state segments.
-Directional street names, unusual punctuation, legal-name conventions, and
-international addresses may need different rules. Address equality is not proof
-of ownership; address disagreement is not necessarily an ownership conflict.
-Word-number addresses such as `One Main Street` are outside the current evidence
-format and require research. Unlisted spelling variations also require research,
-even with a high similarity score. Normalization, matching, and the default
-policy now use version 2; original CSV evidence is unchanged.
-
-There is no corporate hierarchy model. A possible parent remains a research
-hint and must never silently replace a property-specific ownership entity.
-
-No live records are scraped, no production systems are connected, and no LLM is
-used. The matching score is an operational review priority, not a statistically
-calibrated probability. Distinct source labels do not prove independent upstream
-data, source dates do not establish current ownership, and even a score of 100
-may require research. The future export layer
-must require persisted human approval and validate fields, with dry-run output
-only in V1.
+Reviewer names are caller-supplied, not authenticated. SQLite integrity checks
+are not tamper-proof against someone with filesystem/database access. There is
+no production hosting, access-control layer, live Salesforce schema validation,
+or mechanism to recall an already downloaded proposal.
 
 ## How Codex was used
 
 The product owner supplied the business problem, specification, milestone
-boundaries, and approved design. Codex served as the primary coding agent for
-Milestones 1 through 5: scaffolding the project, implementing source models and
-loaders, creating fictional fixtures, writing normalization and matching,
-adding tests, diagnosing a local package-import issue, refining candidate
-ranking, implementing SQLite review and audit controls, building the Streamlit
-interface, adding guarded dry-run export, and testing workflow interactions
-and implementation decisions. Codex does
-not independently own the project.
+boundaries, and design decisions. Codex served as the primary coding agent to
+scaffold the repository, implement modules, create fictional fixtures, write
+and run tests, diagnose failures, refine matching and review controls, build the
+Streamlit workflow, add guarded export, and review/refactor its own changes.
 
-## Future work
+Deterministic logic handles deterministic normalization and matching rules.
+No LLM is called at runtime. Optional AI assistance could later help investigate
+ambiguous cases while leaving human approval and export guards intact.
 
-After the six milestones: live county/corporate adapters, duplicate detection,
-optional AI assistance for ambiguous candidates, richer audit evidence, scheduled
-ingestion, and a separately authorized real Salesforce integration. None of
-these additions is required for the current milestone.
+## Future improvements
+
+Live county/corporate adapters, commercial-data feeds, duplicate detection,
+optional AI-assisted research, authenticated reviewers, richer audit evidence,
+scheduled ingestion, and a separately authorized Salesforce REST adapter.

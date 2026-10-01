@@ -156,7 +156,7 @@ to the repository method perform the same validation.
 
 ## Verification and limits
 
-Run `.venv/bin/python -m pytest`. The full suite has **413 passing tests**,
+Run `.venv/bin/python -m pytest`. The full suite has **414 passing tests**,
 including 43 regressions added after Milestone 3 self-review. Tests reopen actual temporary
 databases, inspect stored history and originals, exercise every human transition,
 use two independent connections for stale submissions, and force database

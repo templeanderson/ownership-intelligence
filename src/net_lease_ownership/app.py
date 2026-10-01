@@ -17,7 +17,7 @@ from net_lease_ownership.ingestion import load_dataset
 from net_lease_ownership.matching import reconcile_dataset
 from net_lease_ownership.models import ReviewStatus
 from net_lease_ownership.policy import load_policy
-from net_lease_ownership.repository import Repository, ReviewRecord
+from net_lease_ownership.repository import Repository
 from net_lease_ownership.review import StaleReviewError, submit_review
 from net_lease_ownership.salesforce import PayloadError, generate_payload
 
