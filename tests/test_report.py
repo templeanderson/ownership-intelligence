@@ -6,6 +6,9 @@ import sys
 import pytest
 
 from net_lease_ownership.__main__ import main
+from net_lease_ownership.repository import Repository
+from net_lease_ownership.matching import reconcile_dataset
+from net_lease_ownership.ingestion import load_dataset
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,3 +98,43 @@ def test_failed_report_replacement_preserves_existing_report(local_inputs, tmp_p
     assert output.read_text(encoding="utf-8") == original
     assert not list(tmp_path.glob(".matching-*.tmp"))
     assert "Cannot write matching report" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("alias", ["direct", "symlink", "hardlink"])
+def test_report_cannot_replace_database_regardless_of_extension(local_inputs, tmp_path, monkeypatch, capsys, alias):
+    data, config = local_inputs
+    database = tmp_path / "extensionless_store"
+    with Repository(database) as repository:
+        repository.save_results(reconcile_dataset(load_dataset(data)))
+        history = repository.history("P001")
+    before = database.read_bytes()
+    output = database
+    if alias != "direct":
+        output = tmp_path / "matching.json"
+        if alias == "symlink":
+            output.symlink_to(database)
+        else:
+            output.hardlink_to(database)
+    monkeypatch.setattr(sys, "argv", ["matching", "--data-dir", str(data), "--config", str(config),
+                                     "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "must not replace" in capsys.readouterr().err
+    assert database.read_bytes() == before
+    assert output.read_bytes() == before
+    assert not list(tmp_path.glob(".matching-*.tmp"))
+    with Repository(database) as repository:
+        assert repository.history("P001") == history
+        assert len(repository.list_records()) == 15
+
+
+@pytest.mark.parametrize("suffix", [".db", ".sqlite", ".sqlite3"])
+@pytest.mark.parametrize("sidecar", ["", "-journal", "-wal", "-shm"])
+def test_report_rejects_database_and_sidecar_names_before_writing(tmp_path, suffix, sidecar):
+    from net_lease_ownership.__main__ import _write_report
+    output = tmp_path / ("ownership" + suffix + sidecar)
+    output.write_bytes(b"original content")
+    with pytest.raises(ValueError, match="database or SQLite sidecar"):
+        _write_report(output, '{"replacement": true}')
+    assert output.read_bytes() == b"original content"

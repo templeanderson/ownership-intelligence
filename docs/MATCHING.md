@@ -3,7 +3,8 @@
 Matching recommends a research disposition. It never establishes legal
 ownership, approves a record, infers corporate parentage, or produces a
 Salesforce payload. Every `MatchResult` has an immutable `unreviewed` status.
-Human decisions and evidence-bound approval will be implemented in Milestone 3.
+Milestone 3 stores human decisions and evidence-bound approval separately in
+SQLite; see [review documentation](REVIEW.md).
 
 ## Evidence and similarity
 
@@ -189,6 +190,10 @@ temporary file in the output directory and replaces the report only after a
 complete write. A failed replacement preserves the previous report and removes
 the temporary file. Write errors produce a clear CLI error.
 
+Milestone 3 also protects the review database: report output rejects existing
+SQLite content regardless of extension or aliases, plus database and SQLite
+sidecar filenames. Protection is checked before analysis and again before writing.
+
 The 207-test suite covers the original samples and the self-review failures:
 placeholder names/addresses, significant name edits, reordered/repeated numeric
 identifiers, protected series/directional tokens, incomplete-candidate conflict
@@ -196,9 +201,9 @@ suppression, directional-city idempotence, malformed result objects, and report
 path collisions. Input-protection tests compare original bytes after rejected
 writes, rather than relying on a success/error message.
 
-These tests do not prove legal ownership accuracy or human-review state
-transitions. Human decisions, audit preservation, approval invalidation after
-evidence changes, and the Salesforce boundary belong to later milestones.
+Matching tests do not prove legal ownership accuracy. Milestone 3 adds separate
+tests for human decisions, audit preservation, and approval invalidation after
+evidence changes. The Salesforce boundary remains in a later milestone.
 
 ## Limits and optional AI extension
 

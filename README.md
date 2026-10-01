@@ -3,10 +3,10 @@
 A portfolio proof of concept for reconciling commercial-property ownership
 evidence before human review and a guarded Salesforce payload export.
 
-**Current milestone: 2 — explainable matching and configurable policy.** Source
-models, fictional data, ingestion, normalization, and reconciliation are
-implemented. SQLite, human decisions, Streamlit, and Salesforce export remain
-future milestones. Every generated match result is `unreviewed`.
+**Current milestone: 3 — SQLite persistence and human review.** Source models,
+fictional data, normalization, reconciliation, and a command-line review workflow
+are implemented. Streamlit and Salesforce export remain future milestones.
+Matching never approves a record; human decisions are stored separately.
 
 ## Problem
 
@@ -30,7 +30,7 @@ python -m pytest
 In this workspace, a working `.venv` has already been created with the bundled
 Python runtime. To rerun tests without using macOS's developer-tools-dependent
 system Python, run `.venv/bin/python -m pytest` from this directory. Verification
-uses Python 3.12.14 and pytest 8.4.2; the current full suite has 207 passing tests.
+uses Python 3.12.14 and pytest 8.4.2; the current full suite has 328 passing tests.
 
 Generate an inspectable matching analysis report from the project directory:
 
@@ -79,6 +79,26 @@ print(county.owner_normalized)   # abc medical holdings llc
 print(county.owner_comparison)   # abc medical holdings
 ```
 
+Load SQLite evidence, inspect a record, and inspect its audit history:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli load
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli list
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli show P001
+PYTHONPATH=src .venv/bin/python -m net_lease_ownership.review_cli history P001
+```
+
+The default local database is `ownership.sqlite3`, ignored by Git. Initial load
+leaves all 15 records unreviewed. Identical reimports preserve decisions; changed
+evidence or policy resets a record to unreviewed and preserves history. See
+[review instructions and SQLite design](docs/REVIEW.md) for explicit decision
+commands, candidate selection, and stale-review protection.
+
+Milestone 3 self-review fixes protect SQLite files from report replacement,
+validate database identity and the full schema on opening, and block replacement
+SQL on repository connections. Approval overriding property or selected-candidate
+warnings requires a nonblank reviewer rationale saved in audit history.
+
 The application uses the Python standard library at this stage. `pytest` is a
 development dependency. Streamlit will be added in Milestone 4. No credentials,
 AI API, environment variables, live feeds, or Salesforce org are needed.
@@ -96,6 +116,7 @@ net-lease-ownership-intelligence/
         matching.toml
     docs/
         MATCHING.md
+        REVIEW.md
     data/
         properties.csv
         county_records.csv
@@ -109,6 +130,9 @@ net-lease-ownership-intelligence/
         ingestion.py
         policy.py
         matching.py
+        repository.py
+        review.py
+        review_cli.py
     tests/
         test_models.py
         test_normalization.py
@@ -116,6 +140,9 @@ net-lease-ownership-intelligence/
         test_policy.py
         test_matching.py
         test_report.py
+        test_repository.py
+        test_review.py
+        test_review_cli.py
 ```
 
 The named package under `src/` supports predictable imports and keeps business
@@ -131,8 +158,8 @@ flowchart TD
     E[Fictional entity CSV] --> I
     I --> N[Preserve originals and normalize]
     N --> M[Explainable matching and configurable rules]
-    M --> DB[(Milestone 3: SQLite)]
-    DB --> R[Milestones 3 and 4: human review]
+    M --> DB[(SQLite evidence snapshots)]
+    DB --> R[Explicit human review and audit history]
     R --> A[Explicit approval of reviewed evidence]
     A --> X[Milestone 5: guarded Salesforce JSON dry run]
 ```
@@ -146,15 +173,15 @@ flowchart TD
 
 Each milestone ends with tests and product-owner review before the next begins.
 
-For Milestone 2 review, inspect [matching rules and sample outcomes](docs/MATCHING.md),
-`config/matching.toml`, and the generated analysis report. Confirm that the
-explanations and conservative handling of conflicts, possible related entities,
-and multiple candidates fit the intended ownership-research workflow.
+For Milestone 3 review, inspect [review commands and schema](docs/REVIEW.md),
+the original evidence returned by `show`, and the history returned by `history`.
+Confirm that approval names a specific candidate and changed evidence requires
+another decision.
 
 Milestone 1 was committed and pushed to
 [ownership-intelligence](https://github.com/templeanderson/ownership-intelligence).
-Milestone 2 changes are local for product-owner review; they have not been
-committed or pushed.
+Milestone 2 is committed locally. Milestone 3 changes are local and uncommitted;
+neither milestone has been pushed. Development stops before Milestone 4.
 
 ## Models and source provenance
 
@@ -171,11 +198,10 @@ versions, policy version, and a fingerprint of the actual policy values.
 
 Disposition and review-status enums represent separate concepts:
 `ready_for_review` is not approval. Source records carry no review status. The
-matching layer always produces `unreviewed` results. The later review layer must
-require a human decision and
-bind approval to the specific evidence reviewed. Changed evidence requires new
-review. Persisted human decisions and guarded export remain planned for later
-milestones.
+matching layer always produces `unreviewed` results. SQLite stores human decisions
+separately and binds approval to a specific evidence snapshot and selected
+candidate. Changed evidence requires new review. Salesforce export remains a
+later milestone; persisted approval alone does not validate an export payload.
 
 ## Sample data and validation
 
@@ -246,11 +272,11 @@ only in V1.
 
 The product owner supplied the business problem, specification, milestone
 boundaries, and approved design. Codex served as the primary coding agent for
-Milestones 1 and 2: scaffolding the project, implementing source models and
+Milestones 1 through 3: scaffolding the project, implementing source models and
 loaders, creating fictional fixtures, writing normalization and matching,
 adding tests, diagnosing a local package-import issue, refining candidate
-ranking, and reviewing implementation decisions. Codex does not independently
-own the project.
+ranking, implementing SQLite review and audit controls, and reviewing
+implementation decisions. Codex does not independently own the project.
 
 ## Future work
 
