@@ -1,0 +1,15 @@
+source_record_id,property_id,source_name,source_as_of,owner_name,mailing_address
+C001,P001,Fictional County Property Feed,2026-09-15,ABC Medical Holdings LLC,"100 Sample Office Road, Dallas, TX 75001"
+C002,P002,Fictional County Property Feed,2026-09-15,Sunrise Property Group LLC,"200 Example Parkway, Plano, TX 75024"
+C003,P003,Fictional County Property Feed,2026-09-15,DFW Healthcare Properties LLC,"300 Sample Office Drive, Fort Worth, TX 76102"
+C004,P004,Fictional County Property Feed,2026-09-15,Cedar Medical Assets LLC,"400 Example Lane, Austin, TX 78701"
+C005,P005,Fictional County Property Feed,2026-09-15,Harbor Healthcare Holdings LLC,"500 Sample Office Avenue, Houston, TX 77002"
+C006,P006,Fictional County Property Feed,2026-09-15,Oakridge Commercial Incorporated,"600 Example Street, Denton, TX 76201"
+C007,P007,Fictional County Property Feed,2026-09-15,Maple & Stone Holdings LLC,"700 Sample Office Boulevard, Frisco, TX 75034"
+C008,P008,Fictional County Property Feed,2026-09-15,  Bluebird   Medical   Holdings LLC  ," 800   Example Drive, McKinney, TX 75069 "
+C009,P009,Fictional County Property Feed,2026-09-15,Juniper Clinic Properties LLC,"900 North Example Road Ste. 200, Arlington, TX 76010"
+C011,P011,Fictional County Property Feed,2026-09-15,Redwood Medical Holdings LLC,"1100 Example Court, Garland, TX 75040"
+C012,P012,Fictional County Property Feed,2026-09-15,Sunrise Dallas Property LLC,"1200 Sample Office Terrace, Richardson, TX 75080"
+C013,P013,Fictional County Property Feed,2026-09-15,Willow Retail Holdings LLC,"1300 Example Agent Road, Waco, TX 76701"
+C014,P014,Fictional County Property Feed,2026-09-15,Brookside Medical Assets LLC,
+C015,P015,Fictional County Property Feed,2026-09-15,Silverleaf Healthcare LLC,"1500 Sample Office Street, San Antonio, TX 78205"

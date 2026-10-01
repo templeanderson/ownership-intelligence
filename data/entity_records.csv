@@ -1,0 +1,16 @@
+source_record_id,property_id,source_name,source_as_of,entity_name,entity_status,registered_address,registered_agent
+E001,P001,Fictional Corporate Entity Feed,2026-09-16,"ABC MEDICAL HOLDINGS, L.L.C.",active,"100 SAMPLE OFFICE RD., DALLAS, TX 75001",Example Agent One
+E002,P002,Fictional Corporate Entity Feed,2026-09-16,"Sunrise Properties Group, LLC",active,"200 Example Pkwy., Plano, TX 75024",Example Agent Two
+E003,P003,Fictional Corporate Entity Feed,2026-09-16,Lone Star Healthcare Holdings LLC,active,"300 Sample Office Dr., Fort Worth, TX 76102",Example Agent Three
+E005,P005,Fictional Corporate Entity Feed,2026-09-16,Harbor Healthcare Holdings LLC,active,"555 Different Example Avenue, Houston, TX 77019",Example Agent Five
+E006,P006,Fictional Corporate Entity Feed,2026-09-16,"OAKRIDGE COMMERCIAL, INC.",active,"600 Example St., Denton, TX 76201",Example Agent Six
+E007,P007,Fictional Corporate Entity Feed,2026-09-16,Maple and Stone Holdings L.L.C.,active,"700 Sample Office Blvd., Frisco, TX 75034",Example Agent Seven
+E008,P008,Fictional Corporate Entity Feed,2026-09-16,BLUEBIRD MEDICAL HOLDINGS LLC,active,"800 Example Dr., McKinney, TX 75069",Example Agent Eight
+E009,P009,Fictional Corporate Entity Feed,2026-09-16,Juniper Clinic Properties L.L.C.,active,"900 N. Example Rd. Suite 200, Arlington, TX 76010",Example Agent Nine
+E010,P010,Fictional Corporate Entity Feed,2026-09-16,Meadow Healthcare Properties LLC,active,"1000 Example Lane, Irving, TX 75060",Example Agent Ten
+E011,P011,Fictional Corporate Entity Feed,2026-09-16,Redwood Medical Holdings LLC,dissolved,"1100 Example Ct., Garland, TX 75040",Example Agent Eleven
+E012,P012,Fictional Corporate Entity Feed,2026-09-16,Sunrise Investment Group LLC,active,"1200 Sample Office Ter., Richardson, TX 75080",Example Agent Twelve
+E013A,P013,Fictional Corporate Entity Feed,2026-09-16,Willow Retail Holdings LLC,active,"1300 Example Agent Rd., Waco, TX 76701",Example Shared Agent
+E013B,P013,Fictional Corporate Entity Feed,2026-09-16,Willow Retail Holding LLC,active,"1300 Example Agent Rd., Waco, TX 76701",Example Shared Agent
+E014,P014,Fictional Corporate Entity Feed,2026-09-16,Brookside Medical Assets LLC,active,,Example Agent Fourteen
+E015,P015,Fictional Corporate Entity Feed,2026-09-16,,unknown,,

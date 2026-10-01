@@ -1,0 +1,16 @@
+property_id,property_address,tenant
+P001,"101 Fictional Care Way, Dallas, TX 75001",Example Family Clinic
+P002,"202 Sample Retail Drive, Plano, TX 75024",Example Pharmacy
+P003,"303 Demonstration Boulevard, Fort Worth, TX 76102",Example Imaging Center
+P004,"404 Mock Market Road, Austin, TX 78701",Example Dental Group
+P005,"505 Illustrative Avenue, Houston, TX 77002",Example Urgent Care
+P006,"606 Fictional Commerce Street, Denton, TX 76201",Example Veterinary Clinic
+P007,"707 Sample Crossing, Frisco, TX 75034",Example Vision Center
+P008,"808 Demonstration Drive, McKinney, TX 75069",Example Specialty Clinic
+P009,"909 Mock Plaza, Arlington, TX 76010",Example Lab Services
+P010,"1010 Illustrative Lane, Irving, TX 75060",Example Rehabilitation
+P011,"1111 Fictional Parkway, Garland, TX 75040",Example Wellness Center
+P012,"1212 Sample Terrace, Richardson, TX 75080",Example Medical Office
+P013,"1313 Demonstration Court, Waco, TX 76701",Example Pet Hospital
+P014,"1414 Mock Retail Circle, Tyler, TX 75701",Example Dialysis Center
+P015,"1515 Illustrative Street, San Antonio, TX 78205",
